@@ -5,14 +5,12 @@ import os
 import requests
 from io import StringIO
 
-
 # Set page configuration
 st.set_page_config(
     page_title="Netflix Recommender System",
     page_icon="🎬",
     layout="wide"
 )
-
 
 # NLTK setup with better error handling
 try:
@@ -30,7 +28,7 @@ try:
     st.info("Downloading required NLTK resources...")
     nltk.download('punkt', download_dir=nltk_data_dir)
     nltk.download('stopwords', download_dir=nltk_data_dir)
-    nltk.download('tokenizers/punkt', download_dir=nltk_data_dir)
+    # Removed the incorrect line: nltk.download('tokenizers/punkt', download_dir=nltk_data_dir)
 
     # Log what's available
     st.info(f"NLTK data path: {nltk.data.path}")
@@ -38,7 +36,7 @@ try:
         f"Available NLTK data: {os.listdir(nltk_data_dir) if os.path.exists(nltk_data_dir) else 'No data directory found'}")
 
     # Verification step
-    nltk.data.find('tokenizers/punkt')
+    nltk.data.find('tokenizers/punkt')    # This checks for "punkt" (stored under tokenizers/punkt)
     nltk.data.find('corpora/stopwords')
     st.success("NLTK resources loaded successfully!")
 
@@ -76,7 +74,6 @@ except ImportError as e:
     st.error(f"Failed to import NetflixRecommender: {str(e)}")
     RECOMMENDER_AVAILABLE = False
 
-
     # Create a simple fallback recommender class if the real one isn't available
     class FallbackRecommender:
         def __init__(self):
@@ -98,11 +95,11 @@ except ImportError as e:
             # Just return the top rated titles that aren't in the liked_ids
             if self.titles_df is not None:
                 return [
-                           {"id": row["id"], "title": row["title"], "score": row["combined_score"]}
-                           for _, row in
-                           self.titles_df.sort_values("combined_score", ascending=False).head(top_n * 2).iterrows()
-                           if row["id"] not in liked_ids
-                       ][:top_n]
+                    {"id": row["id"], "title": row["title"], "score": row["combined_score"]}
+                    for _, row in
+                    self.titles_df.sort_values("combined_score", ascending=False).head(top_n * 2).iterrows()
+                    if row["id"] not in liked_ids
+                ][:top_n]
             return []
 
         def get_content_recommendations(self, title_id, top_n=10):
@@ -135,7 +132,6 @@ except ImportError as e:
                 # Sort by combined score and take top N
                 return sorted(genre_matches, key=lambda x: x.get("combined_score", 0), reverse=True)[:top_n]
             return []
-
 
     # Use the fallback if the real recommender isn't available
     NetflixRecommender = FallbackRecommender
@@ -337,10 +333,10 @@ def calculate_combined_score(row):
 
     # Create weighted combined score
     combined_score = (
-            0.4 * imdb_score +  # IMDB score has highest weight
-            0.3 * (imdb_votes / 100000) +  # Normalize vote count
-            0.2 * tmdb_score +  # TMDB score
-            0.1 * (tmdb_popularity / 100)  # Normalize popularity
+        0.4 * imdb_score +  # IMDB score has highest weight
+        0.3 * (imdb_votes / 100000) +  # Normalize vote count
+        0.2 * tmdb_score +  # TMDB score
+        0.1 * (tmdb_popularity / 100)  # Normalize popularity
     )
 
     return combined_score
@@ -433,8 +429,12 @@ def load_data_and_build_models():
 
 # Function to display title details modal
 def show_title_details(title_id):
+    """
+    Displays a modal-like section with details for the given title_id.
+    (Fixed to use title_id instead of rec['id'].)
+    """
     # Get title info
-    title_info = st.session_state.titles_df[st.session_state.titles_df['id'] == rec['id']]
+    title_info = st.session_state.titles_df[st.session_state.titles_df['id'] == title_id]
     if title_info.empty:
         st.error("Title information not found.")
         return
@@ -445,12 +445,12 @@ def show_title_details(title_id):
     cast_data = st.session_state.credits_df[
         (st.session_state.credits_df['id'] == title_id) &
         (st.session_state.credits_df['role'] == 'ACTOR')
-        ]
+    ]
 
     director_data = st.session_state.credits_df[
         (st.session_state.credits_df['id'] == title_id) &
         (st.session_state.credits_df['role'] == 'DIRECTOR')
-        ]
+    ]
 
     # Create a container for the modal
     with st.container():
@@ -463,7 +463,7 @@ def show_title_details(title_id):
             if st.button("Close", key=f"close_modal_{title_id}"):
                 st.session_state.show_detail_modal = False
                 st.session_state.detail_title_id = None
-                st.rerun()
+                st.experimental_rerun()
 
         st.markdown(f"**{title_data.get('show_type', 'N/A')}** | **Released:** {title_data.get('release_year', 'N/A')}")
 
@@ -550,7 +550,7 @@ def show_title_details(title_id):
                     st.session_state.selected_titles = [
                         item for item in st.session_state.selected_titles if item['id'] != title_id
                     ]
-                    st.rerun()
+                    st.experimental_rerun()
             else:
                 if st.button("Select", key=f"detail_select_{title_id}"):
                     title_name = title_data['title']
@@ -558,7 +558,7 @@ def show_title_details(title_id):
                         'id': title_id,
                         'title': title_name
                     })
-                    st.rerun()
+                    st.experimental_rerun()
         st.markdown("---")
 
 
@@ -614,7 +614,7 @@ if st.session_state.loading:
     with st.spinner(st.session_state.loading_message):
         if load_data_and_build_models():
             st.success("Models built successfully!")
-            st.rerun()  # Re-run the script after loading is complete
+            st.experimental_rerun()  # Re-run the script after loading is complete
 elif not st.session_state.model_built:
     st.error("Failed to load recommendation models. Please refresh the page to try again.")
 else:
@@ -691,7 +691,7 @@ else:
                                 if st.button("View Details", key=f"view_{title['id']}"):
                                     st.session_state.show_detail_modal = True
                                     st.session_state.detail_title_id = title['id']
-                                    st.rerun()
+                                    st.experimental_rerun()
 
                                 # Add select/deselect button
                                 title_id = title['id']
@@ -702,14 +702,14 @@ else:
                                         st.session_state.selected_titles = [
                                             item for item in st.session_state.selected_titles if item['id'] != title_id
                                         ]
-                                        st.rerun()
+                                        st.experimental_rerun()
                                 else:
                                     if st.button("Select", key=f"select_{title_id}"):
                                         st.session_state.selected_titles.append({
                                             'id': title_id,
                                             'title': title_name
                                         })
-                                        st.rerun()
+                                        st.experimental_rerun()
 
         # Popular by Genre tab
         with tab2:
@@ -744,7 +744,7 @@ else:
                         if st.button(genre, key=f"genre_{genre}",
                                      help=f"Show popular titles in {genre} genre"):
                             st.session_state.selected_genre = genre
-                            st.rerun()
+                            st.experimental_rerun()
 
             # Display popular titles in selected genre
             if st.session_state.selected_genre:
@@ -765,18 +765,18 @@ else:
                             idx = i + j
                             if idx < len(popular_in_genre):
                                 rec = popular_in_genre[idx]
-                                with cols[j]:
-                                    # Get title info
-                                    title_info = st.session_state.titles_df[
-                                        st.session_state.st.session_state.titles_df['id'] == rec['id']]
-                                    if not title_info.empty:
-                                        title_details = title_info.iloc[0]
+                                # Fixed the typo here: removed "st.session_state." duplication
+                                title_info = st.session_state.titles_df[st.session_state.titles_df['id'] == rec['id']]
+                                if not title_info.empty:
+                                    title_details = title_info.iloc[0]
 
+                                    with cols[j]:
                                         # Create card
                                         with st.container():
                                             st.markdown(f"### {rec['title']}")
                                             st.markdown(
-                                                f"**{title_details.get('show_type', 'N/A')} ({title_details.get('release_year', 'N/A')})**")
+                                                f"**{title_details.get('show_type', 'N/A')} ({title_details.get('release_year', 'N/A')})**"
+                                            )
 
                                             # Add genres
                                             genres = title_details.get('genres', [])
@@ -792,8 +792,10 @@ else:
                                             # Add description (truncated)
                                             description = title_details.get('description', '')
                                             if description:
-                                                st.markdown(f"<div class='truncate-text'>{description}</div>",
-                                                            unsafe_allow_html=True)
+                                                st.markdown(
+                                                    f"<div class='truncate-text'>{description}</div>",
+                                                    unsafe_allow_html=True
+                                                )
 
                                             # Add scores
                                             imdb_score = title_details['imdb_score'] if pd.notna(
@@ -813,27 +815,28 @@ else:
                                             if st.button("View Details", key=f"view_genre_{rec['id']}"):
                                                 st.session_state.show_detail_modal = True
                                                 st.session_state.detail_title_id = rec['id']
-                                                st.rerun()
+                                                st.experimental_rerun()
 
                                             # Add select/deselect button
                                             title_id = rec['id']
                                             title_name = rec['title']
                                             is_selected = any(
-                                                item['id'] == title_id for item in st.session_state.selected_titles)
+                                                item['id'] == title_id for item in st.session_state.selected_titles
+                                            )
                                             if is_selected:
                                                 if st.button("Deselect", key=f"genre_deselect_{title_id}"):
                                                     st.session_state.selected_titles = [
-                                                        item for item in st.session_state.selected_titles if
-                                                        item['id'] != title_id
+                                                        item for item in st.session_state.selected_titles
+                                                        if item['id'] != title_id
                                                     ]
-                                                    st.rerun()
+                                                    st.experimental_rerun()
                                             else:
                                                 if st.button("Select", key=f"genre_select_{title_id}"):
                                                     st.session_state.selected_titles.append({
                                                         'id': title_id,
                                                         'title': title_name
                                                     })
-                                                    st.rerun()
+                                                    st.experimental_rerun()
                 else:
                     st.warning(f"No titles found in the {st.session_state.selected_genre} genre.")
 
@@ -846,7 +849,7 @@ else:
                 st.markdown(f"{i + 1}. {item['title']}")
             if st.button("Get Recommendations", key="get_recs_button"):
                 st.session_state.recommendation_mode = True
-                st.rerun()
+                st.experimental_rerun()
         else:
             st.markdown("You haven't selected any titles yet. Please select at least one title to get recommendations.")
         st.markdown("</div>", unsafe_allow_html=True)
@@ -861,7 +864,7 @@ else:
         if st.button("Start Over"):
             st.session_state.recommendation_mode = False
             st.session_state.selected_titles = []
-            st.rerun()
+            st.experimental_rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
         liked_ids = [item['id'] for item in st.session_state.selected_titles]
@@ -993,7 +996,7 @@ else:
                                     if st.button("View Details", key=f"view_rec_{rec['id']}"):
                                         st.session_state.show_detail_modal = True
                                         st.session_state.detail_title_id = rec['id']
-                                        st.rerun()
+                                        st.experimental_rerun()
 
 # Add instructions for GitHub repository URLs
 st.sidebar.markdown("---")
