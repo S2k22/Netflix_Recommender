@@ -617,7 +617,7 @@ if st.session_state.loading:
     with st.spinner(st.session_state.loading_message):
         if load_data_and_build_models():
             st.success("Models built successfully!")
-            safe_rerun()  # Use safe_rerun() instead of st.experimental_rerun()
+            st.rerun()  # Using st.rerun() instead of st.experimental_rerun()
 elif not st.session_state.model_built:
     st.error("Failed to load recommendation models. Please refresh the page to try again.")
 
