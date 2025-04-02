@@ -38,35 +38,35 @@ try:
         os.makedirs(nltk_data_dir)
     nltk.data.path.append(nltk_data_dir)
 
-    st.info("Downloading required NLTK resources...")
+    #st.info("Downloading required NLTK resources...")
     nltk.download('punkt', download_dir=nltk_data_dir)
     nltk.download('stopwords', download_dir=nltk_data_dir)
     nltk.download('punkt_tab', download_dir=nltk_data_dir)  # For 'punkt_tab'
 
-    st.info(f"NLTK data path: {nltk.data.path}")
-    st.info(f"Available NLTK data: {os.listdir(nltk_data_dir) if os.path.exists(nltk_data_dir) else 'No data directory found'}")
+    #st.info(f"NLTK data path: {nltk.data.path}")
+    #st.info(f"Available NLTK data: {os.listdir(nltk_data_dir) if os.path.exists(nltk_data_dir) else 'No data directory found'}")
 
     nltk.data.find('tokenizers/punkt')
     nltk.data.find('corpora/stopwords')
-    st.success("NLTK resources loaded successfully!")
+    #st.success("NLTK resources loaded successfully!")
 except LookupError as e:
     st.warning(f"First NLTK download attempt incomplete: {str(e)}")
-    st.info("Trying alternative download method...")
+    #st.info("Trying alternative download method...")
     try:
         nltk.download('punkt', download_dir=nltk_data_dir, quiet=False)
         nltk.download('stopwords', download_dir=nltk_data_dir, quiet=False)
         nltk.download('punkt_tab', download_dir=nltk_data_dir, quiet=False)
         nltk.data.find('tokenizers/punkt')
         nltk.data.find('corpora/stopwords')
-        st.success("NLTK resources loaded successfully on second attempt!")
+        #st.success("NLTK resources loaded successfully on second attempt!")
     except Exception as inner_e:
         st.error(f"Failed to load NLTK resources: {str(inner_e)}")
-        st.info("The app will continue, but text processing features may not work correctly.")
+       # st.info("The app will continue, but text processing features may not work correctly.")
 except Exception as e:
     st.error(f"Error with NLTK setup: {str(e)}")
-    st.info("The app will continue, but some text processing features may not work correctly.")
+    #st.info("The app will continue, but some text processing features may not work correctly.")
 except ImportError:
-    st.error("Failed to import NLTK. Some features might not work properly.")
+    #st.error("Failed to import NLTK. Some features might not work properly.")
     nltk = None
 
 # ===================== NetflixRecommender Setup =====================
@@ -316,18 +316,18 @@ def calculate_combined_score(row):
 
 def load_data_from_github(url):
     try:
-        st.info(f"Attempting to load data from: {url}")
+        #st.info(f"Attempting to load data from: {url}")
         response = requests.get(url)
         response.raise_for_status()
         data_preview = response.text[:100]
-        st.success(f"Data loaded successfully. Preview: {data_preview}...")
+        #st.success(f"Data loaded successfully. Preview: {data_preview}...")
         return pd.read_csv(StringIO(response.text))
     except requests.exceptions.RequestException as e:
         st.error(f"Network error when loading data: {str(e)}")
         return None
     except pd.errors.ParserError as e:
         st.error(f"CSV parsing error: {str(e)}")
-        st.info("Please check that the URL points to a valid CSV file.")
+        #st.info("Please check that the URL points to a valid CSV file.")
         return None
     except Exception as e:
         st.error(f"Unexpected error loading data: {str(e)}")
@@ -539,7 +539,7 @@ with st.sidebar:
     if st.session_state.loading:
         with st.spinner(st.session_state.loading_message):
             if load_data_and_build_models():
-                st.success("Models built successfully!")
+                #st.success("Models built successfully!")
                 st.rerun()
     elif not st.session_state.model_built:
         st.error("Failed to load recommendation models. Please refresh the page to try again.")
