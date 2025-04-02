@@ -413,6 +413,13 @@ def load_data_and_build_models():
         st.session_state.loading = False
         return False
 
+def safe_rerun():
+    if hasattr(st, "experimental_rerun"):
+        st.experimental_rerun()
+    else:
+        st.error("Your version of Streamlit does not support experimental_rerun. Please upgrade Streamlit.")
+        st.stop()
+
 
 # Function to display title details modal
 def show_title_details(title_id):
@@ -596,14 +603,24 @@ with st.sidebar:
     Dataset includes 5000+ titles and 77k+ actor/director credits.
     """)
 
-# Main content
+
+# Helper function to safely trigger a rerun
+def safe_rerun():
+    if hasattr(st, "experimental_rerun"):
+        st.experimental_rerun()
+    else:
+        st.error("Your version of Streamlit does not support experimental_rerun. Please upgrade Streamlit.")
+        st.stop()
+
+# Example usage in your app:
 if st.session_state.loading:
     with st.spinner(st.session_state.loading_message):
         if load_data_and_build_models():
             st.success("Models built successfully!")
-            st.experimental_rerun()  # Re-run the script after loading is complete
+            safe_rerun()  # Use safe_rerun() instead of st.experimental_rerun()
 elif not st.session_state.model_built:
     st.error("Failed to load recommendation models. Please refresh the page to try again.")
+
 else:
     if 'recommendation_mode' not in st.session_state:
         st.session_state.recommendation_mode = False
