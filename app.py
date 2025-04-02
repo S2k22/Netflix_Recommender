@@ -417,7 +417,7 @@ def show_title_details(title_id):
                 st.session_state.detail_title_id = None
                 st.rerun()
 
-        st.markdown(f"**{title_data.get('show_type', 'N/A')}** | **Released:** {title_data.get('release_year', 'N/A')}")
+        st.markdown(f"**{title_data.get('type', 'N/A')}** | **Released:** {title_data.get('release_year', 'N/A')}")
         col_desc, col_meta = st.columns([3, 2])
 
         with col_desc:
@@ -582,7 +582,7 @@ if not st.session_state.recommendation_mode:
                     with cols[j]:
                         with st.container():
                             st.markdown(f"### {title['title']}")
-                            st.markdown(f"**{title.get('show_type', 'N/A')} ({title.get('release_year', 'N/A')})**")
+                            st.markdown(f"**{title.get('type', 'N/A')} ({title.get('release_year', 'N/A')})**")
 
                             genres = title.get('genres', [])
                             if isinstance(genres, list) and genres:
