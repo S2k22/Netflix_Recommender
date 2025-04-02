@@ -211,8 +211,8 @@ if 'recommender' not in st.session_state:
 
 # Configure GitHub repository URLs
 # Replace these URLs with the direct links to your raw CSV files on GitHub
-GITHUB_TITLES_URL = "https://github.com/S2k22/Netflix_Recommender/tree/master/titles.csv"
-GITHUB_CREDITS_URL = "https://github.com/S2k22/Netflix_Recommender/tree/master/credits.csv"
+GITHUB_TITLES_URL = "https://raw.githubusercontent.com/S2k22/Netflix_Recommender/master/titles.csv"
+GITHUB_CREDITS_URL = "https://raw.githubusercontent.com/S2k22/Netflix_Recommender/master/credits.csv"
 
 
 # Calculate combined score for sorting titles
