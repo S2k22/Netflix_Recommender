@@ -392,14 +392,14 @@ try:
                                         st.session_state.selected_titles = [
                                             item for item in st.session_state.selected_titles if item['id'] != title_id
                                         ]
-                                        st.experimental_rerun()
+                                        st.rerun()
                                 else:
                                     if st.button("Select", key=f"select_{title_id}"):
                                         st.session_state.selected_titles.append({
                                             'id': title_id,
                                             'title': title_name
                                         })
-                                        st.experimental_rerun()
+                                        st.rerun()
 
         with tab2:
             st.markdown("<h2 class='sub-header'>Browse Popular Titles by Genre</h2>", unsafe_allow_html=True)
@@ -422,7 +422,7 @@ try:
                     with cols[i]:
                         if st.button(genre, key=f"genre_{genre}"):
                             st.session_state.selected_genre = genre
-                            st.experimental_rerun()
+                            st.rerun()
 
             if st.session_state.selected_genre:
                 st.markdown(f"### Popular Titles in {st.session_state.selected_genre}")
@@ -465,14 +465,14 @@ try:
                                                         item for item in st.session_state.selected_titles if
                                                         item['id'] != title_id
                                                     ]
-                                                    st.experimental_rerun()
+                                                    st.rerun()
                                             else:
                                                 if st.button("Select", key=f"genre_select_{title_id}"):
                                                     st.session_state.selected_titles.append({
                                                         'id': title_id,
                                                         'title': title_name
                                                     })
-                                                    st.experimental_rerun()
+                                                    st.rerun()
                 else:
                     st.warning(f"No titles found in the {st.session_state.selected_genre} genre.")
 
@@ -486,7 +486,7 @@ try:
             # The button for final recommendations:
             if st.button("Get Recommendations", key="get_recs_button"):
                 st.session_state.recommendation_mode = True
-                st.experimental_rerun()
+                st.rerun()
         else:
             st.markdown("You haven't selected any titles yet. Please select at least one title to get recommendations.")
         st.markdown("</div>", unsafe_allow_html=True)
@@ -501,7 +501,7 @@ try:
         if st.button("Start Over"):
             st.session_state.recommendation_mode = False
             st.session_state.selected_titles = []
-            st.experimental_rerun()
+            st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
         liked_ids = [item['id'] for item in st.session_state.selected_titles]
