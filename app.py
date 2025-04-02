@@ -12,7 +12,6 @@ st.set_page_config(
     layout="wide"
 )
 
-# NLTK setup with better error handling
 try:
     import nltk
 
@@ -24,32 +23,28 @@ try:
     # Add the path to NLTK's data path
     nltk.data.path.append(nltk_data_dir)
 
-    # First download attempt
     st.info("Downloading required NLTK resources...")
     nltk.download('punkt', download_dir=nltk_data_dir)
     nltk.download('stopwords', download_dir=nltk_data_dir)
-    # Removed the incorrect line: nltk.download('tokenizers/punkt', download_dir=nltk_data_dir)
+    nltk.download('punkt_tab', download_dir=nltk_data_dir)  # <-- New addition to satisfy the lookup
 
-    # Log what's available
     st.info(f"NLTK data path: {nltk.data.path}")
     st.info(
         f"Available NLTK data: {os.listdir(nltk_data_dir) if os.path.exists(nltk_data_dir) else 'No data directory found'}")
 
     # Verification step
-    nltk.data.find('tokenizers/punkt')    # This checks for "punkt" (stored under tokenizers/punkt)
+    nltk.data.find('tokenizers/punkt')
     nltk.data.find('corpora/stopwords')
     st.success("NLTK resources loaded successfully!")
 
 except LookupError as e:
-    # Second attempt if verification failed
     st.warning(f"First NLTK download attempt incomplete: {str(e)}")
     st.info("Trying alternative download method...")
 
     try:
         nltk.download('punkt', download_dir=nltk_data_dir, quiet=False)
         nltk.download('stopwords', download_dir=nltk_data_dir, quiet=False)
-
-        # Final verification
+        nltk.download('punkt_tab', download_dir=nltk_data_dir, quiet=False)
         nltk.data.find('tokenizers/punkt')
         nltk.data.find('corpora/stopwords')
         st.success("NLTK resources loaded successfully on second attempt!")
@@ -68,7 +63,6 @@ except ImportError:
 # Import the netflix_recommender with error handling
 try:
     from netflix_recommender import NetflixRecommender
-
     RECOMMENDER_AVAILABLE = True
 except ImportError as e:
     st.error(f"Failed to import NetflixRecommender: {str(e)}")
@@ -92,12 +86,10 @@ except ImportError as e:
 
         def get_recommendations_for_user(self, liked_ids, top_n=10, diversity_factor=0.3):
             st.warning("Using simple popularity-based recommendations (fallback mode).")
-            # Just return the top rated titles that aren't in the liked_ids
             if self.titles_df is not None:
                 return [
                     {"id": row["id"], "title": row["title"], "score": row["combined_score"]}
-                    for _, row in
-                    self.titles_df.sort_values("combined_score", ascending=False).head(top_n * 2).iterrows()
+                    for _, row in self.titles_df.sort_values("combined_score", ascending=False).head(top_n * 2).iterrows()
                     if row["id"] not in liked_ids
                 ][:top_n]
             return []
@@ -112,7 +104,6 @@ except ImportError as e:
 
         def get_popular_in_genre(self, genre, top_n=10):
             if self.titles_df is not None:
-                # Simple implementation for genre filtering
                 genre_matches = []
                 for _, row in self.titles_df.iterrows():
                     genres = row.get('genres', [])
@@ -121,19 +112,15 @@ except ImportError as e:
                             genres = json.loads(genres.replace("'", '"'))
                         except:
                             genres = [genres]
-
                     if genre in genres:
                         genre_matches.append({
                             "id": row["id"],
                             "title": row["title"],
                             "combined_score": row.get("combined_score", 0)
                         })
-
-                # Sort by combined score and take top N
                 return sorted(genre_matches, key=lambda x: x.get("combined_score", 0), reverse=True)[:top_n]
             return []
 
-    # Use the fallback if the real recommender isn't available
     NetflixRecommender = FallbackRecommender
 
 # Add custom CSS
