@@ -26,29 +26,42 @@ try:
     # Add the path to NLTK's data path
     nltk.data.path.append(nltk_data_dir)
 
-    # Force download the required NLTK data - with a more robust approach
-    try:
-        # Check if punkt is already downloaded
-        nltk.data.find('tokenizers/punkt')
-    except LookupError:
-        # If not found, download it
-        nltk.download('punkt', download_dir=nltk_data_dir, quiet=False)
+    # First download attempt
+    st.info("Downloading required NLTK resources...")
+    nltk.download('punkt', download_dir=nltk_data_dir)
+    nltk.download('stopwords', download_dir=nltk_data_dir)
+    nltk.download('tokenizers/punkt', download_dir=nltk_data_dir)
+
+    # Log what's available
+    st.info(f"NLTK data path: {nltk.data.path}")
+    st.info(
+        f"Available NLTK data: {os.listdir(nltk_data_dir) if os.path.exists(nltk_data_dir) else 'No data directory found'}")
+
+    # Verification step
+    nltk.data.find('tokenizers/punkt')
+    nltk.data.find('corpora/stopwords')
+    st.success("NLTK resources loaded successfully!")
+
+except LookupError as e:
+    # Second attempt if verification failed
+    st.warning(f"First NLTK download attempt incomplete: {str(e)}")
+    st.info("Trying alternative download method...")
 
     try:
-        # Check if stopwords are already downloaded
-        nltk.data.find('corpora/stopwords')
-    except LookupError:
-        # If not found, download it
+        nltk.download('punkt', download_dir=nltk_data_dir, quiet=False)
         nltk.download('stopwords', download_dir=nltk_data_dir, quiet=False)
 
-    # Verify the downloads were successful
-    try:
+        # Final verification
         nltk.data.find('tokenizers/punkt')
         nltk.data.find('corpora/stopwords')
-        st.success("NLTK resources loaded successfully!")
-    except LookupError as e:
-        st.error(f"Failed to load NLTK resources: {str(e)}")
-        st.info("The app will continue, but some text processing features may not work correctly.")
+        st.success("NLTK resources loaded successfully on second attempt!")
+    except Exception as inner_e:
+        st.error(f"Failed to load NLTK resources: {str(inner_e)}")
+        st.info("The app will continue, but text processing features may not work correctly.")
+
+except Exception as e:
+    st.error(f"Error with NLTK setup: {str(e)}")
+    st.info("The app will continue, but some text processing features may not work correctly.")
 
 except ImportError:
     st.error("Failed to import NLTK. Some features might not work properly.")
