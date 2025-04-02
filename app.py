@@ -45,7 +45,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# ===================== Custom CSS =====================
+# Custom CSS
 st.markdown("""
 <style>
     .main-header {
@@ -169,7 +169,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ===================== Data & Model Loading =====================
+# Data & Model Loading
 GITHUB_TITLES_URL = "https://raw.githubusercontent.com/S2k22/Netflix_Recommender/master/titles.csv"
 GITHUB_CREDITS_URL = "https://raw.githubusercontent.com/S2k22/Netflix_Recommender/master/credits.csv"
 
@@ -201,7 +201,7 @@ def load_data_from_github(url):
         return None
 
 
-# Simplified recommendation function that uses basic filtering
+# Recommendation function that uses basic filtering
 def get_simple_recommendations(titles_df, liked_ids, num_recommendations=10, genre_filter=None):
     # Filter out already liked titles
     filtered_df = titles_df[~titles_df['id'].isin(liked_ids)].copy()
@@ -296,10 +296,10 @@ def load_data():
         return None, None
 
 
-# ===================== MAIN APP LAYOUT =====================
+# MAIN APP LAYOUT
 try:
     # Show header
-    st.markdown("<h1 class='main-header'>Netflix Simple Recommender System</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 class='main-header'>Netflix Recommender System</h1>", unsafe_allow_html=True)
 
     # ======== SIDEBAR ========
     with st.sidebar:
@@ -316,7 +316,7 @@ try:
 
         st.markdown("### About")
         st.markdown("""
-        This simplified recommender system provides recommendations based on Netflix content popularity.
+        This recommender system provides recommendations based on Netflix content popularity.
 
         The dataset includes thousands of movies and TV shows with their ratings and metadata.
         """)
@@ -337,9 +337,9 @@ try:
         titles_df = st.session_state.titles_df
         credits_df = st.session_state.credits_df
 
-    # Are we in "recommendation mode" or "selection mode"?
+
     if not st.session_state.recommendation_mode:
-        # ======== SELECTION MODE ========
+        # SELECTION MODE
         tab1, tab2 = st.tabs(["Top Rated Titles", "Popular by Genre"])
 
         with tab1:

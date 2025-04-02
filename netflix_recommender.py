@@ -40,7 +40,7 @@ class NetflixRecommender:
         self.log_memory_usage("Initialized recommender")
 
     def log_memory_usage(self, step):
-        """Log memory usage at different steps"""
+
         try:
             import psutil
             import os
@@ -51,7 +51,7 @@ class NetflixRecommender:
             logger.warning("Could not measure memory usage")
 
     def load_dataframes(self, titles_df, credits_df):
-        """Load data from existing DataFrames"""
+
         # Sample data if it's too large
         if len(titles_df) > 5000:
             logger.info(f"Sampling titles from {len(titles_df)} to 5000 records")
@@ -68,7 +68,7 @@ class NetflixRecommender:
         self.log_memory_usage("Loaded dataframes")
 
     def load_from_files(self, titles_path, credits_path):
-        """Load data from CSV files"""
+
         try:
             self.titles_df = pd.read_csv(titles_path)
             self.credits_df = pd.read_csv(credits_path)
@@ -80,7 +80,7 @@ class NetflixRecommender:
             raise
 
     def clear_memory(self):
-        """Clear large matrices to free up memory"""
+
         logger.info("Clearing memory...")
         # Save small necessary data before clearing
         self.title_idx_map_backup = self.title_idx_map if hasattr(self, 'title_idx_map') else None
@@ -96,7 +96,7 @@ class NetflixRecommender:
         self.log_memory_usage("After memory clearing")
 
     def _parse_list_strings(self, df, column):
-        """Parse string representations of lists to actual Python lists"""
+
 
         def parse_list(x):
             if pd.isna(x) or x == '':
@@ -114,7 +114,7 @@ class NetflixRecommender:
         return df
 
     def preprocess_data(self):
-        """Preprocess the loaded data for recommendation models"""
+
         logger.info("Preprocessing data...")
         self.log_memory_usage("Before preprocessing")
 
@@ -150,7 +150,7 @@ class NetflixRecommender:
         stemmer = SnowballStemmer('english')
 
         def clean_text(text):
-            """Simple text cleaning without relying on NLTK's word_tokenize"""
+
             if isinstance(text, str):
                 # Simple cleaning for efficiency
                 text = re.sub('[^a-zA-Z]', ' ', text.lower())
@@ -196,7 +196,7 @@ class NetflixRecommender:
         logger.info("Preprocessing complete.")
 
     def calculate_combined_score(self, row):
-        """Calculate a combined score from various rating metrics"""
+
         # Ensure all values are numeric and handle missing values
         imdb_score = row['imdb_score'] if pd.notna(row['imdb_score']) else 0
         imdb_votes = row['imdb_votes'] if pd.notna(row['imdb_votes']) else 0
@@ -214,7 +214,7 @@ class NetflixRecommender:
         return combined_score
 
     def build_models(self):
-        """Build recommendation models with memory optimization"""
+
         if not self.preprocessed:
             self.preprocess_data()
 
@@ -338,7 +338,7 @@ class NetflixRecommender:
         logger.info("All models built successfully.")
 
     def _get_recommendations_by_similarity(self, title_id, similarity_matrix, top_n=10):
-        """Get recommendations based on similarity matrix"""
+
         idx = self.title_idx_map.get(title_id)
         if idx is None:
             logger.warning(f"Title ID {title_id} not found in the dataset.")
@@ -363,25 +363,25 @@ class NetflixRecommender:
         return recommendations
 
     def get_content_recommendations(self, title_id, top_n=10):
-        """Get content-based recommendations for a title"""
+
         if not self.model_built:
             self.build_models()
         return self._get_recommendations_by_similarity(title_id, self.content_similarity, top_n)
 
     def get_cast_crew_recommendations(self, title_id, top_n=10):
-        """Get cast & crew based recommendations for a title"""
+
         if not self.model_built:
             self.build_models()
         return self._get_recommendations_by_similarity(title_id, self.actor_director_similarity, top_n)
 
     def get_hybrid_recommendations(self, title_id, top_n=10):
-        """Get hybrid recommendations for a title"""
+
         if not self.model_built:
             self.build_models()
         return self._get_recommendations_by_similarity(title_id, self.combined_similarity, top_n)
 
     def get_popular_in_genre(self, genre, top_n=10):
-        """Get popular titles in a specific genre"""
+
         if not self.model_built:
             self.build_models()
 
@@ -419,7 +419,7 @@ class NetflixRecommender:
         return recommendations
 
     def get_recommendations_for_user(self, liked_title_ids, top_n=20, diversity_factor=0.3):
-        """Get personalized recommendations based on multiple liked titles"""
+
         if not self.model_built:
             self.build_models()
 
