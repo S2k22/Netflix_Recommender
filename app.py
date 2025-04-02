@@ -5,6 +5,15 @@ import os
 import requests
 from io import StringIO
 
+
+# Set page configuration
+st.set_page_config(
+    page_title="Netflix Recommender System",
+    page_icon="🎬",
+    layout="wide"
+)
+
+
 # NLTK setup with better error handling
 try:
     import nltk
@@ -117,13 +126,6 @@ except ImportError as e:
 
     # Use the fallback if the real recommender isn't available
     NetflixRecommender = FallbackRecommender
-
-# Set page configuration
-st.set_page_config(
-    page_title="Netflix Recommender System",
-    page_icon="🎬",
-    layout="wide"
-)
 
 # Add custom CSS
 st.markdown("""
