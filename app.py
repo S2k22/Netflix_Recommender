@@ -20,6 +20,8 @@ if "show_detail_modal" not in st.session_state:
     st.session_state.show_detail_modal = False
 if "detail_title_id" not in st.session_state:
     st.session_state.detail_title_id = None
+if "loading_message" not in st.session_state:
+    st.session_state.loading_message = "Loading dataset and building recommendation models..."
 
 # Set page configuration
 st.set_page_config(
@@ -57,7 +59,6 @@ try:
 except LookupError as e:
     st.warning(f"First NLTK download attempt incomplete: {str(e)}")
     st.info("Trying alternative download method...")
-
     try:
         nltk.download('punkt', download_dir=nltk_data_dir, quiet=False)
         nltk.download('stopwords', download_dir=nltk_data_dir, quiet=False)
@@ -68,11 +69,9 @@ except LookupError as e:
     except Exception as inner_e:
         st.error(f"Failed to load NLTK resources: {str(inner_e)}")
         st.info("The app will continue, but text processing features may not work correctly.")
-
 except Exception as e:
     st.error(f"Error with NLTK setup: {str(e)}")
     st.info("The app will continue, but some text processing features may not work correctly.")
-
 except ImportError:
     st.error("Failed to import NLTK. Some features might not work properly.")
     nltk = None
@@ -87,7 +86,6 @@ except ImportError as e:
     RECOMMENDER_AVAILABLE = False
 
 
-    # Fallback recommender class if the real one isn't available
     class FallbackRecommender:
         def __init__(self):
             self.titles_df = None
@@ -147,174 +145,38 @@ except ImportError as e:
 # ===================== Custom CSS =====================
 st.markdown("""
 <style>
-    .main-header {
-        font-size: 2.5rem;
-        color: #E50914;
-        text-align: center;
-        margin-bottom: 1rem;
-    }
-    .sub-header {
-        font-size: 1.5rem;
-        margin-top: 2rem;
-        margin-bottom: 1rem;
-        color: #221f1f;
-    }
-    .card {
-        background-color: #f8f9fa;
-        border-radius: 10px;
-        padding: 1.5rem;
-        margin-bottom: 1rem;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        cursor: pointer;
-        transition: transform 0.2s, box-shadow 0.2s;
-        height: 100%;
-    }
-    .card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
-    }
-    .metric-card {
-        background-color: #E50914;
-        color: white;
-        border-radius: 10px;
-        padding: 1rem;
-        text-align: center;
-    }
-    .recommendation {
-        padding: 1rem;
-        margin-bottom: 0.5rem;
-        border-radius: 5px;
-        background-color: #f1f1f1;
-        transition: transform 0.2s;
-    }
-    .recommendation:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
-    }
-    .score-badge {
-        background-color: #E50914;
-        color: white;
-        border-radius: 20px;
-        padding: 0.2rem 0.6rem;
-        font-weight: bold;
-    }
-    .combined-score-badge {
-        background-color: #221f1f;
-        color: white;
-        border-radius: 20px;
-        padding: 0.2rem 0.6rem;
-        font-weight: bold;
-        margin-left: 0.5rem;
-    }
-    .footer {
-        text-align: center;
-        color: #777;
-        margin-top: 3rem;
-        padding: 1rem;
-        border-top: 1px solid #eee;
-    }
-    .loading-spinner {
-        text-align: center;
-        margin: 100px auto;
-    }
-    .genre-pill {
-        display: inline-block;
-        background-color: #f8f9fa;
-        border: 1px solid #e0e0e0;
-        border-radius: 20px;
-        padding: 0.2rem 0.8rem;
-        margin: 0.3rem;
-        font-size: 0.9rem;
-        cursor: pointer;
-        transition: all 0.2s;
-    }
-    .genre-pill:hover {
-        background-color: #e9ecef;
-        transform: translateY(-2px);
-    }
-    .genre-pill.active {
-        background-color: #E50914;
-        color: white;
-        border-color: #E50914;
-    }
-    .tab-content {
-        padding: 1rem;
-        border: 1px solid #dee2e6;
-        border-top: 0;
-        border-radius: 0 0 0.25rem 0.25rem;
-    }
-    .recommendation-type-selector {
-        margin-bottom: 1rem;
-        padding: 0.5rem;
-        background-color: #f8f9fa;
-        border-radius: 10px;
-    }
-    .explanation-box {
-        background-color: #f8f9fa;
-        border-left: 4px solid #E50914;
-        padding: 0.5rem 1rem;
-        margin-top: 0.5rem;
-        font-size: 0.9rem;
-    }
-    .detail-modal {
-        background-color: white;
-        border-radius: 10px;
-        padding: 2rem;
-        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
-    }
-    .modal-header {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 1rem;
-        border-bottom: 1px solid #eee;
-        padding-bottom: 1rem;
-    }
-    .modal-title {
-        color: #E50914;
-        margin: 0;
-    }
-    .modal-section {
-        margin-bottom: 1.5rem;
-    }
-    .modal-section-title {
-        color: #221f1f;
-        font-weight: bold;
-        margin-bottom: 0.5rem;
-    }
-    .metadata-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 1rem;
-    }
-    .metadata-item {
-        margin-bottom: 0.5rem;
-    }
-    .metadata-label {
-        font-weight: bold;
-        color: #555;
-    }
-    .cast-item {
-        display: inline-block;
-        background-color: #f8f9fa;
-        border-radius: 5px;
-        padding: 0.2rem 0.5rem;
-        margin: 0.2rem;
-    }
-    .truncate-text {
-        display: -webkit-box;
-        -webkit-line-clamp: 3;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
+    .main-header { font-size: 2.5rem; color: #E50914; text-align: center; margin-bottom: 1rem; }
+    .sub-header { font-size: 1.5rem; margin-top: 2rem; margin-bottom: 1rem; color: #221f1f; }
+    .card { background-color: #f8f9fa; border-radius: 10px; padding: 1.5rem; margin-bottom: 1rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; height: 100%; }
+    .card:hover { transform: translateY(-3px); box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1); }
+    .metric-card { background-color: #E50914; color: white; border-radius: 10px; padding: 1rem; text-align: center; }
+    .recommendation { padding: 1rem; margin-bottom: 0.5rem; border-radius: 5px; background-color: #f1f1f1; transition: transform 0.2s; }
+    .recommendation:hover { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1); }
+    .score-badge { background-color: #E50914; color: white; border-radius: 20px; padding: 0.2rem 0.6rem; font-weight: bold; }
+    .combined-score-badge { background-color: #221f1f; color: white; border-radius: 20px; padding: 0.2rem 0.6rem; font-weight: bold; margin-left: 0.5rem; }
+    .footer { text-align: center; color: #777; margin-top: 3rem; padding: 1rem; border-top: 1px solid #eee; }
+    .loading-spinner { text-align: center; margin: 100px auto; }
+    .genre-pill { display: inline-block; background-color: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 20px; padding: 0.2rem 0.8rem; margin: 0.3rem; font-size: 0.9rem; cursor: pointer; transition: all 0.2s; }
+    .genre-pill:hover { background-color: #e9ecef; transform: translateY(-2px); }
+    .genre-pill.active { background-color: #E50914; color: white; border-color: #E50914; }
+    .tab-content { padding: 1rem; border: 1px solid #dee2e6; border-top: 0; border-radius: 0 0 0.25rem 0.25rem; }
+    .recommendation-type-selector { margin-bottom: 1rem; padding: 0.5rem; background-color: #f8f9fa; border-radius: 10px; }
+    .explanation-box { background-color: #f8f9fa; border-left: 4px solid #E50914; padding: 0.5rem 1rem; margin-top: 0.5rem; font-size: 0.9rem; }
+    .detail-modal { background-color: white; border-radius: 10px; padding: 2rem; box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2); }
+    .modal-header { display: flex; justify-content: space-between; margin-bottom: 1rem; border-bottom: 1px solid #eee; padding-bottom: 1rem; }
+    .modal-title { color: #E50914; margin: 0; }
+    .modal-section { margin-bottom: 1.5rem; }
+    .modal-section-title { color: #221f1f; font-weight: bold; margin-bottom: 0.5rem; }
+    .metadata-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .metadata-item { margin-bottom: 0.5rem; }
+    .metadata-label { font-weight: bold; color: #555; }
+    .cast-item { display: inline-block; background-color: #f8f9fa; border-radius: 5px; padding: 0.2rem 0.5rem; margin: 0.2rem; }
+    .truncate-text { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; }
 </style>
 """, unsafe_allow_html=True)
 
-# ===================== Session State Initialization & Configuration =====================
-# (Already initialized above)
-
 # ===================== Data & Model Loading =====================
-# Configure GitHub repository URLs - FIXED to use raw URLs
 GITHUB_TITLES_URL = "https://raw.githubusercontent.com/S2k22/Netflix_Recommender/master/titles.csv"
 GITHUB_CREDITS_URL = "https://raw.githubusercontent.com/S2k22/Netflix_Recommender/master/credits.csv"
 
@@ -325,7 +187,6 @@ def calculate_combined_score(row):
     imdb_votes = row['imdb_votes'] if pd.notna(row['imdb_votes']) else 0
     tmdb_popularity = row['tmdb_popularity'] if pd.notna(row['tmdb_popularity']) else 0
     tmdb_score = row['tmdb_score'] if pd.notna(row['tmdb_score']) else 0
-
     combined_score = (
             0.4 * imdb_score +
             0.3 * (imdb_votes / 100000) +
@@ -362,36 +223,28 @@ def load_data_and_build_models():
         credits_df = load_data_from_github(GITHUB_CREDITS_URL)
         if titles_df is None or credits_df is None:
             return False
-
         if 'person_ID' not in credits_df.columns:
             print("Creating person_ID field from names")
             credits_df['person_ID'] = credits_df['name'].astype('category').cat.codes
-
         numeric_columns = ['imdb_score', 'imdb_votes', 'tmdb_popularity', 'tmdb_score']
         for col in numeric_columns:
             if col in titles_df.columns:
                 titles_df[col] = pd.to_numeric(titles_df[col], errors='coerce')
-
         if 'release_year' in titles_df.columns:
             titles_df['release_year'] = pd.to_numeric(titles_df['release_year'], errors='coerce')
         if 'runtime' in titles_df.columns:
             titles_df['runtime'] = pd.to_numeric(titles_df['runtime'], errors='coerce')
-
         common_ids = set(titles_df['id']).intersection(set(credits_df['id']))
         titles_df = titles_df[titles_df['id'].isin(common_ids)].copy()
         credits_df = credits_df[credits_df['id'].isin(common_ids)].copy()
         titles_df.reset_index(drop=True, inplace=True)
         credits_df.reset_index(drop=True, inplace=True)
-
         titles_df['combined_score'] = titles_df.apply(calculate_combined_score, axis=1)
-
         recommender = NetflixRecommender()
         recommender.load_dataframes(titles_df, credits_df)
-
         with st.spinner("Building recommendation models..."):
             recommender.preprocess_data()
             recommender.build_models()
-
         st.session_state.recommender = recommender
         st.session_state.titles_df = titles_df
         st.session_state.credits_df = credits_df
@@ -503,7 +356,7 @@ def show_title_details(title_id):
 # ===================== Main UI =====================
 st.markdown("<h1 class='main-header'>Netflix Advanced Recommender System</h1>", unsafe_allow_html=True)
 
-# Sidebar for configuration (already defined above)
+# Sidebar for configuration (only settings go here)
 with st.sidebar:
     st.image("https://upload.wikimedia.org/wikipedia/commons/7/7a/Logonetflix.png", width=200)
     st.markdown("### Recommendation Settings")
@@ -543,13 +396,13 @@ with st.sidebar:
     elif not st.session_state.model_built:
         st.error("Failed to load recommendation models. Please refresh the page to try again.")
     else:
-        if 'recommendation_mode' not in st.session_state:
+        if "recommendation_mode" not in st.session_state:
             st.session_state.recommendation_mode = False
             st.session_state.selected_titles = []
         if st.session_state.show_detail_modal and st.session_state.detail_title_id:
             show_title_details(st.session_state.detail_title_id)
 
-# Main content area (outside the sidebar)
+# Main content area (outside sidebar)
 if not st.session_state.recommendation_mode:
     # INITIAL SELECTION MODE
     tab1, tab2 = st.tabs(["Top Rated Titles", "Popular by Genre"])
@@ -697,7 +550,6 @@ if not st.session_state.recommendation_mode:
                                                 st.rerun()
             else:
                 st.warning(f"No titles found in the {st.session_state.selected_genre} genre.")
-
         st.markdown("<div class='card'>", unsafe_allow_html=True)
         st.markdown("### Your Selections")
         if st.session_state.selected_titles:
@@ -818,5 +670,4 @@ else:
 
 st.markdown("<div class='footer'>Netflix Advanced Recommender System - Created with Streamlit</div>",
             unsafe_allow_html=True)
-
 
