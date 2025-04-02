@@ -1,25 +1,122 @@
 import streamlit as st
 import pandas as pd
-from netflix_recommender import NetflixRecommender
 import json
 import os
 import requests
 from io import StringIO
-import nltk
 
-# Create a directory for NLTK data and set the path
-nltk_data_dir = os.path.join(os.path.expanduser("~"), "nltk_data")
-if not os.path.exists(nltk_data_dir):
-    os.makedirs(nltk_data_dir)
-
-nltk.data.path.append(nltk_data_dir)
-
-# Download NLTK data - use try/except to handle errors gracefully
+# NLTK setup with better error handling
 try:
-    nltk.download('punkt', download_dir=nltk_data_dir, quiet=True)
-    nltk.download('stopwords', download_dir=nltk_data_dir, quiet=True)
-except Exception as e:
-    st.warning(f"NLTK download warning: {str(e)}. Some features might not work properly.")
+    import nltk
+
+    # Create a directory for NLTK data and set the path
+    nltk_data_dir = os.path.join(os.path.expanduser("~"), "nltk_data")
+    if not os.path.exists(nltk_data_dir):
+        os.makedirs(nltk_data_dir)
+
+    # Add the path to NLTK's data path
+    nltk.data.path.append(nltk_data_dir)
+
+    # Force download the required NLTK data - with a more robust approach
+    try:
+        # Check if punkt is already downloaded
+        nltk.data.find('tokenizers/punkt')
+    except LookupError:
+        # If not found, download it
+        nltk.download('punkt', download_dir=nltk_data_dir, quiet=False)
+
+    try:
+        # Check if stopwords are already downloaded
+        nltk.data.find('corpora/stopwords')
+    except LookupError:
+        # If not found, download it
+        nltk.download('stopwords', download_dir=nltk_data_dir, quiet=False)
+
+    # Verify the downloads were successful
+    try:
+        nltk.data.find('tokenizers/punkt')
+        nltk.data.find('corpora/stopwords')
+        st.success("NLTK resources loaded successfully!")
+    except LookupError as e:
+        st.error(f"Failed to load NLTK resources: {str(e)}")
+        st.info("The app will continue, but some text processing features may not work correctly.")
+
+except ImportError:
+    st.error("Failed to import NLTK. Some features might not work properly.")
+    nltk = None
+
+# Import the netflix_recommender with error handling
+try:
+    from netflix_recommender import NetflixRecommender
+
+    RECOMMENDER_AVAILABLE = True
+except ImportError as e:
+    st.error(f"Failed to import NetflixRecommender: {str(e)}")
+    RECOMMENDER_AVAILABLE = False
+
+
+    # Create a simple fallback recommender class if the real one isn't available
+    class FallbackRecommender:
+        def __init__(self):
+            self.titles_df = None
+            self.credits_df = None
+
+        def load_dataframes(self, titles_df, credits_df):
+            self.titles_df = titles_df
+            self.credits_df = credits_df
+
+        def preprocess_data(self):
+            st.warning("Using fallback recommender with limited functionality.")
+
+        def build_models(self):
+            st.warning("Models not built fully - using fallback implementation.")
+
+        def get_recommendations_for_user(self, liked_ids, top_n=10, diversity_factor=0.3):
+            st.warning("Using simple popularity-based recommendations (fallback mode).")
+            # Just return the top rated titles that aren't in the liked_ids
+            if self.titles_df is not None:
+                return [
+                           {"id": row["id"], "title": row["title"], "score": row["combined_score"]}
+                           for _, row in
+                           self.titles_df.sort_values("combined_score", ascending=False).head(top_n * 2).iterrows()
+                           if row["id"] not in liked_ids
+                       ][:top_n]
+            return []
+
+        def get_content_recommendations(self, title_id, top_n=10):
+            st.warning("Content recommendations not available in fallback mode.")
+            return []
+
+        def get_cast_crew_recommendations(self, title_id, top_n=10):
+            st.warning("Cast & crew recommendations not available in fallback mode.")
+            return []
+
+        def get_popular_in_genre(self, genre, top_n=10):
+            if self.titles_df is not None:
+                # Simple implementation for genre filtering
+                genre_matches = []
+                for _, row in self.titles_df.iterrows():
+                    genres = row.get('genres', [])
+                    if isinstance(genres, str):
+                        try:
+                            genres = json.loads(genres.replace("'", '"'))
+                        except:
+                            genres = [genres]
+
+                    if genre in genres:
+                        genre_matches.append({
+                            "id": row["id"],
+                            "title": row["title"],
+                            "combined_score": row.get("combined_score", 0)
+                        })
+
+                # Sort by combined score and take top N
+                return sorted(genre_matches, key=lambda x: x.get("combined_score", 0), reverse=True)[:top_n]
+            return []
+
+
+    # Use the fallback if the real recommender isn't available
+    NetflixRecommender = FallbackRecommender
 
 # Set page configuration
 st.set_page_config(
@@ -209,8 +306,7 @@ if 'recommender' not in st.session_state:
     st.session_state.show_detail_modal = False
     st.session_state.detail_title_id = None
 
-# Configure GitHub repository URLs
-# Replace these URLs with the direct links to your raw CSV files on GitHub
+# Configure GitHub repository URLs - FIXED to use raw URLs
 GITHUB_TITLES_URL = "https://raw.githubusercontent.com/S2k22/Netflix_Recommender/master/titles.csv"
 GITHUB_CREDITS_URL = "https://raw.githubusercontent.com/S2k22/Netflix_Recommender/master/credits.csv"
 
@@ -236,13 +332,26 @@ def calculate_combined_score(row):
 
 
 def load_data_from_github(url):
-    """Load CSV data from GitHub URL"""
+    """Load CSV data from GitHub URL with improved error handling"""
     try:
+        st.info(f"Attempting to load data from: {url}")
         response = requests.get(url)
         response.raise_for_status()  # Raise exception for HTTP errors
+
+        # Check if response contains CSV data by examining first few characters
+        data_preview = response.text[:100]
+        st.success(f"Data loaded successfully. Preview: {data_preview}...")
+
         return pd.read_csv(StringIO(response.text))
+    except requests.exceptions.RequestException as e:
+        st.error(f"Network error when loading data: {str(e)}")
+        return None
+    except pd.errors.ParserError as e:
+        st.error(f"CSV parsing error: {str(e)}")
+        st.info("Please check that the URL points to a valid CSV file.")
+        return None
     except Exception as e:
-        st.error(f"Error loading data from GitHub: {str(e)}")
+        st.error(f"Unexpected error loading data: {str(e)}")
         return None
 
 
@@ -644,7 +753,7 @@ else:
                                 with cols[j]:
                                     # Get title info
                                     title_info = st.session_state.titles_df[
-                                        st.session_state.titles_df['id'] == rec['id']]
+                                        st.session_state.st.session_state.titles_df['id'] == rec['id']]
                                     if not title_info.empty:
                                         title_details = title_info.iloc[0]
 
