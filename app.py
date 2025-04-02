@@ -2,7 +2,24 @@ import streamlit as st
 import pandas as pd
 from netflix_recommender import NetflixRecommender
 import json
+import os
+import requests
+from io import StringIO
+import nltk
 
+# Create a directory for NLTK data and set the path
+nltk_data_dir = os.path.join(os.path.expanduser("~"), "nltk_data")
+if not os.path.exists(nltk_data_dir):
+    os.makedirs(nltk_data_dir)
+
+nltk.data.path.append(nltk_data_dir)
+
+# Download NLTK data - use try/except to handle errors gracefully
+try:
+    nltk.download('punkt', download_dir=nltk_data_dir, quiet=True)
+    nltk.download('stopwords', download_dir=nltk_data_dir, quiet=True)
+except Exception as e:
+    st.warning(f"NLTK download warning: {str(e)}. Some features might not work properly.")
 
 # Set page configuration
 st.set_page_config(
@@ -192,15 +209,10 @@ if 'recommender' not in st.session_state:
     st.session_state.show_detail_modal = False
     st.session_state.detail_title_id = None
 
-# Add NLTK data handling
-import nltk
-
-try:
-    nltk.data.find('tokenizers/punkt')
-    nltk.data.find('corpora/stopwords')
-except LookupError:
-    nltk.download('punkt')
-    nltk.download('stopwords')
+# Configure GitHub repository URLs
+# Replace these URLs with the direct links to your raw CSV files on GitHub
+GITHUB_TITLES_URL = "https://raw.githubusercontent.com/yourusername/yourrepo/main/titles.csv"
+GITHUB_CREDITS_URL = "https://raw.githubusercontent.com/yourusername/yourrepo/main/credits.csv"
 
 
 # Calculate combined score for sorting titles
@@ -223,11 +235,25 @@ def calculate_combined_score(row):
     return combined_score
 
 
+def load_data_from_github(url):
+    """Load CSV data from GitHub URL"""
+    try:
+        response = requests.get(url)
+        response.raise_for_status()  # Raise exception for HTTP errors
+        return pd.read_csv(StringIO(response.text))
+    except Exception as e:
+        st.error(f"Error loading data from GitHub: {str(e)}")
+        return None
+
+
 def load_data_and_build_models():
     try:
-        # Load the dataset from files
-        titles_df = pd.read_csv('titles.csv')
-        credits_df = pd.read_csv('credits.csv')
+        # Load the datasets from GitHub
+        titles_df = load_data_from_github(GITHUB_TITLES_URL)
+        credits_df = load_data_from_github(GITHUB_CREDITS_URL)
+
+        if titles_df is None or credits_df is None:
+            return False
 
         # Handle missing person_ID
         if 'person_ID' not in credits_df.columns:
@@ -263,8 +289,9 @@ def load_data_and_build_models():
         recommender.load_dataframes(titles_df, credits_df)
 
         # Build models
-        recommender.preprocess_data()
-        recommender.build_models()
+        with st.spinner("Building recommendation models..."):
+            recommender.preprocess_data()
+            recommender.build_models()
 
         # Store in session state
         st.session_state.recommender = recommender
@@ -301,112 +328,114 @@ def show_title_details(title_id):
         (st.session_state.credits_df['role'] == 'DIRECTOR')
         ]
 
-    # Create columns for layout
-    col1, col2 = st.columns([5, 1])
-    with col1:
-        st.markdown(f"# {title_data['title']}")
-    with col2:
-        if st.button("Close", key=f"close_modal_{title_id}"):
-            st.session_state.show_detail_modal = False
-            st.session_state.detail_title_id = None
-            st.rerun()
-
-    st.markdown(f"**{title_data.get('show_type', 'N/A')}** | **Released:** {title_data.get('release_year', 'N/A')}")
-
-    # Content grid: Description on left, metadata on right
-    col_desc, col_meta = st.columns([3, 2])
-
-    with col_desc:
-        # Description
-        st.markdown("### Description")
-        description = title_data.get('description', 'No description available.')
-        st.markdown(f"{description}")
-
-        # Genres
-        genres = title_data.get('genres', [])
-        if isinstance(genres, list) and genres:
-            genre_str = ', '.join(genres)
-        elif isinstance(genres, str):
-            try:
-                genres_list = json.loads(genres.replace("'", '"'))
-                genre_str = ', '.join(genres_list)
-            except:
-                genre_str = genres
-        else:
-            genre_str = 'N/A'
-
-        st.markdown("### Genres")
-        st.markdown(f"{genre_str}")
-
-        # Cast
-        if not cast_data.empty:
-            st.markdown("### Cast")
-            cast_list = []
-            for _, actor in cast_data.head(10).iterrows():
-                cast_list.append(actor['name'])
-            st.markdown(', '.join(cast_list))
-
-        # Directors
-        if not director_data.empty:
-            st.markdown("### Director(s)")
-            dir_list = []
-            for _, director in director_data.iterrows():
-                dir_list.append(director['name'])
-            st.markdown(', '.join(dir_list))
-
-    with col_meta:
-        # Scores and metadata
-        st.markdown("### Ratings & Info")
-
-        # IMDB Score
-        imdb_score = title_data.get('imdb_score', 'N/A')
-        if pd.notna(imdb_score):
-            st.markdown(f"**IMDB Score:** {imdb_score}")
-
-        # IMDB Votes
-        imdb_votes = title_data.get('imdb_votes', 'N/A')
-        if pd.notna(imdb_votes):
-            st.markdown(f"**IMDB Votes:** {int(imdb_votes):,}")
-
-        # TMDB Score
-        tmdb_score = title_data.get('tmdb_score', 'N/A')
-        if pd.notna(tmdb_score):
-            st.markdown(f"**TMDB Score:** {tmdb_score}")
-
-        # TMDB Popularity
-        tmdb_popularity = title_data.get('tmdb_popularity', 'N/A')
-        if pd.notna(tmdb_popularity):
-            st.markdown(f"**TMDB Popularity:** {tmdb_popularity}")
-
-        # Combined Score
-        combined_score = title_data.get('combined_score', 'N/A')
-        if pd.notna(combined_score):
-            st.markdown(f"**Combined Score:** {combined_score:.2f}")
-
-        # Runtime
-        runtime = title_data.get('runtime', 'N/A')
-        if pd.notna(runtime):
-            st.markdown(f"**Runtime:** {int(runtime)} min")
-
-        # Selection button
+    # Create a container for the modal
+    with st.container():
         st.markdown("---")
-        is_selected = any(item['id'] == title_id for item in st.session_state.selected_titles)
-        if is_selected:
-            if st.button("Deselect", key=f"detail_deselect_{title_id}"):
-                st.session_state.selected_titles = [
-                    item for item in st.session_state.selected_titles if item['id'] != title_id
-                ]
-                st.rerun()
-        else:
-            if st.button("Select", key=f"detail_select_{title_id}"):
-                title_name = title_data['title']
-                st.session_state.selected_titles.append({
-                    'id': title_id,
-                    'title': title_name
-                })
+        # Create columns for layout
+        col1, col2 = st.columns([5, 1])
+        with col1:
+            st.markdown(f"# {title_data['title']}")
+        with col2:
+            if st.button("Close", key=f"close_modal_{title_id}"):
+                st.session_state.show_detail_modal = False
+                st.session_state.detail_title_id = None
                 st.rerun()
 
-        st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown(f"**{title_data.get('show_type', 'N/A')}** | **Released:** {title_data.get('release_year', 'N/A')}")
+
+        # Content grid: Description on left, metadata on right
+        col_desc, col_meta = st.columns([3, 2])
+
+        with col_desc:
+            # Description
+            st.markdown("### Description")
+            description = title_data.get('description', 'No description available.')
+            st.markdown(f"{description}")
+
+            # Genres
+            genres = title_data.get('genres', [])
+            if isinstance(genres, list) and genres:
+                genre_str = ', '.join(genres)
+            elif isinstance(genres, str):
+                try:
+                    genres_list = json.loads(genres.replace("'", '"'))
+                    genre_str = ', '.join(genres_list)
+                except:
+                    genre_str = genres
+            else:
+                genre_str = 'N/A'
+
+            st.markdown("### Genres")
+            st.markdown(f"{genre_str}")
+
+            # Cast
+            if not cast_data.empty:
+                st.markdown("### Cast")
+                cast_list = []
+                for _, actor in cast_data.head(10).iterrows():
+                    cast_list.append(actor['name'])
+                st.markdown(', '.join(cast_list))
+
+            # Directors
+            if not director_data.empty:
+                st.markdown("### Director(s)")
+                dir_list = []
+                for _, director in director_data.iterrows():
+                    dir_list.append(director['name'])
+                st.markdown(', '.join(dir_list))
+
+        with col_meta:
+            # Scores and metadata
+            st.markdown("### Ratings & Info")
+
+            # IMDB Score
+            imdb_score = title_data.get('imdb_score', 'N/A')
+            if pd.notna(imdb_score):
+                st.markdown(f"**IMDB Score:** {imdb_score}")
+
+            # IMDB Votes
+            imdb_votes = title_data.get('imdb_votes', 'N/A')
+            if pd.notna(imdb_votes):
+                st.markdown(f"**IMDB Votes:** {int(imdb_votes):,}")
+
+            # TMDB Score
+            tmdb_score = title_data.get('tmdb_score', 'N/A')
+            if pd.notna(tmdb_score):
+                st.markdown(f"**TMDB Score:** {tmdb_score}")
+
+            # TMDB Popularity
+            tmdb_popularity = title_data.get('tmdb_popularity', 'N/A')
+            if pd.notna(tmdb_popularity):
+                st.markdown(f"**TMDB Popularity:** {tmdb_popularity}")
+
+            # Combined Score
+            combined_score = title_data.get('combined_score', 'N/A')
+            if pd.notna(combined_score):
+                st.markdown(f"**Combined Score:** {combined_score:.2f}")
+
+            # Runtime
+            runtime = title_data.get('runtime', 'N/A')
+            if pd.notna(runtime):
+                st.markdown(f"**Runtime:** {int(runtime)} min")
+
+            # Selection button
+            st.markdown("---")
+            is_selected = any(item['id'] == title_id for item in st.session_state.selected_titles)
+            if is_selected:
+                if st.button("Deselect", key=f"detail_deselect_{title_id}"):
+                    st.session_state.selected_titles = [
+                        item for item in st.session_state.selected_titles if item['id'] != title_id
+                    ]
+                    st.rerun()
+            else:
+                if st.button("Select", key=f"detail_select_{title_id}"):
+                    title_name = title_data['title']
+                    st.session_state.selected_titles.append({
+                        'id': title_id,
+                        'title': title_name
+                    })
+                    st.rerun()
+        st.markdown("---")
 
 
 # Header
@@ -722,8 +751,11 @@ else:
             # For content-based, we need to use each liked title to get recommendations
             all_recommendations = []
             for title_id in liked_ids:
-                content_recs = st.session_state.recommender.get_content_recommendations(title_id, top_n=20)
-                all_recommendations.extend(content_recs)
+                try:
+                    content_recs = st.session_state.recommender.get_content_recommendations(title_id, top_n=20)
+                    all_recommendations.extend(content_recs)
+                except Exception as e:
+                    st.warning(f"Couldn't get recommendations for title {title_id}: {str(e)}")
 
             # Filter out duplicates and already liked titles
             filtered_recs = {}
@@ -744,8 +776,11 @@ else:
             # For cast & crew, similar approach
             all_recommendations = []
             for title_id in liked_ids:
-                cast_crew_recs = st.session_state.recommender.get_cast_crew_recommendations(title_id, top_n=20)
-                all_recommendations.extend(cast_crew_recs)
+                try:
+                    cast_crew_recs = st.session_state.recommender.get_cast_crew_recommendations(title_id, top_n=20)
+                    all_recommendations.extend(cast_crew_recs)
+                except Exception as e:
+                    st.warning(f"Couldn't get recommendations for title {title_id}: {str(e)}")
 
             # Filter out duplicates and already liked titles
             filtered_recs = {}
@@ -762,72 +797,91 @@ else:
             st.markdown("<div class='recommendation-type-selector'>", unsafe_allow_html=True)
             st.markdown("🔄 **Using Hybrid recommendations** - balancing content, cast & crew, and quality metrics")
             st.markdown("</div>", unsafe_allow_html=True)
-            recommendations = st.session_state.recommender.get_recommendations_for_user(
-                liked_ids, top_n=num_recommendations, diversity_factor=diversity_factor)
+            try:
+                recommendations = st.session_state.recommender.get_recommendations_for_user(
+                    liked_ids, top_n=num_recommendations, diversity_factor=diversity_factor)
+            except Exception as e:
+                st.error(f"Error getting hybrid recommendations: {str(e)}")
+                recommendations = []
 
         st.markdown("<h3 class='sub-header'>Recommendations For You</h3>", unsafe_allow_html=True)
 
-        # Display recommendations in a grid layout
-        cols_per_row = 3
-        for i in range(0, len(recommendations), cols_per_row):
-            cols = st.columns(cols_per_row)
+        if not recommendations:
+            st.warning("No recommendations found. Try selecting different titles or a different recommendation type.")
+        else:
+            # Display recommendations in a grid layout
+            cols_per_row = 3
+            for i in range(0, len(recommendations), cols_per_row):
+                cols = st.columns(cols_per_row)
 
-            # Process recommendations for this row
-            for j in range(cols_per_row):
-                idx = i + j
-                if idx < len(recommendations):
-                    rec = recommendations[idx]
-                    rec_info = st.session_state.titles_df[st.session_state.titles_df['id'] == rec['id']]
+                # Process recommendations for this row
+                for j in range(cols_per_row):
+                    idx = i + j
+                    if idx < len(recommendations):
+                        rec = recommendations[idx]
+                        rec_info = st.session_state.titles_df[st.session_state.titles_df['id'] == rec['id']]
 
-                    if not rec_info.empty:
-                        rec_details = rec_info.iloc[0]
+                        if not rec_info.empty:
+                            rec_details = rec_info.iloc[0]
 
-                        with cols[j]:
-                            # Create recommendation card
-                            with st.container():
-                                st.markdown(f"### {idx + 1}. {rec['title']}")
-                                st.markdown(
-                                    f"**{rec_details.get('show_type', 'N/A')} ({rec_details.get('release_year', 'N/A')})**")
+                            with cols[j]:
+                                # Create recommendation card
+                                with st.container():
+                                    st.markdown(f"### {idx + 1}. {rec['title']}")
+                                    st.markdown(
+                                        f"**{rec_details.get('show_type', 'N/A')} ({rec_details.get('release_year', 'N/A')})**")
 
-                                # Add genres
-                                genres = rec_details.get('genres', [])
-                                if isinstance(genres, list) and genres:
-                                    st.markdown(f"**Genres:** {', '.join(genres[:3])}")
-                                elif isinstance(genres, str):
-                                    try:
-                                        genres_list = json.loads(genres.replace("'", '"'))
-                                        st.markdown(f"**Genres:** {', '.join(genres_list[:3])}")
-                                    except Exception:
-                                        st.markdown(f"**Genres:** {genres}")
+                                    # Add genres
+                                    genres = rec_details.get('genres', [])
+                                    if isinstance(genres, list) and genres:
+                                        st.markdown(f"**Genres:** {', '.join(genres[:3])}")
+                                    elif isinstance(genres, str):
+                                        try:
+                                            genres_list = json.loads(genres.replace("'", '"'))
+                                            st.markdown(f"**Genres:** {', '.join(genres_list[:3])}")
+                                        except Exception:
+                                            st.markdown(f"**Genres:** {genres}")
 
-                                # Add description (truncated)
-                                description = rec_details.get('description', '')
-                                if description:
-                                    st.markdown(f"<div class='truncate-text'>{description}</div>",
-                                                unsafe_allow_html=True)
+                                    # Add description (truncated)
+                                    description = rec_details.get('description', '')
+                                    if description:
+                                        st.markdown(f"<div class='truncate-text'>{description}</div>",
+                                                    unsafe_allow_html=True)
 
-                                # Add scores based on recommendation type
-                                if st.session_state.recommendation_type == "hybrid":
-                                    score = rec.get('score', 0)
-                                    score_text = f"<span class='score-badge'>Score: {score:.2f}</span>"
-                                else:
-                                    similarity = rec.get('similarity_score', 0)
-                                    score_text = f"<span class='score-badge'>Similarity: {similarity:.2f}</span>"
+                                    # Add scores based on recommendation type
+                                    if st.session_state.recommendation_type == "hybrid":
+                                        score = rec.get('score', 0)
+                                        score_text = f"<span class='score-badge'>Score: {score:.2f}</span>"
+                                    else:
+                                        similarity = rec.get('similarity_score', 0)
+                                        score_text = f"<span class='score-badge'>Similarity: {similarity:.2f}</span>"
 
-                                # Add combined score
-                                combined_score = rec_details.get('combined_score', None)
-                                if combined_score is not None and pd.notna(combined_score):
-                                    combined_score_text = f"<span class='combined-score-badge'>Combined Score: {combined_score:.2f}</span>"
-                                else:
-                                    combined_score_text = ""
+                                    # Add combined score
+                                    combined_score = rec_details.get('combined_score', None)
+                                    if combined_score is not None and pd.notna(combined_score):
+                                        combined_score_text = f"<span class='combined-score-badge'>Combined Score: {combined_score:.2f}</span>"
+                                    else:
+                                        combined_score_text = ""
 
-                                st.markdown(f"{score_text} {combined_score_text}", unsafe_allow_html=True)
+                                    st.markdown(f"{score_text} {combined_score_text}", unsafe_allow_html=True)
 
-                                # Add view details button
-                                if st.button("View Details", key=f"view_rec_{rec['id']}"):
-                                    st.session_state.show_detail_modal = True
-                                    st.session_state.detail_title_id = rec['id']
-                                    st.rerun()
+                                    # Add view details button
+                                    if st.button("View Details", key=f"view_rec_{rec['id']}"):
+                                        st.session_state.show_detail_modal = True
+                                        st.session_state.detail_title_id = rec['id']
+                                        st.rerun()
+
+# Add instructions for GitHub repository URLs
+st.sidebar.markdown("---")
+st.sidebar.markdown("### Setup")
+st.sidebar.markdown("""
+To use this app with your own data, you need to:
+1. Upload your CSV files to GitHub
+2. Replace the GitHub URLs in the app's code with links to your raw CSV files:
+   - Update `GITHUB_TITLES_URL`
+   - Update `GITHUB_CREDITS_URL`
+3. Make sure your CSV files have the required columns
+""")
 
 # Footer
 st.markdown("<div class='footer'>Netflix Advanced Recommender System - Created with Streamlit</div>",
