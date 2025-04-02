@@ -419,7 +419,7 @@ def load_data_and_build_models():
 # Function to display title details modal
 def show_title_details(title_id):
     # Get title info
-    title_info = st.session_state.titles_df[st.session_state.titles_df['id'] == title_id]
+    title_info = st.session_state.titles_df[st.session_state.titles_df['id'] == rec['id']]
     if title_info.empty:
         st.error("Title information not found.")
         return
