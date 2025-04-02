@@ -15,7 +15,7 @@ import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger('netflix_recommender')
 
-# Download NLTK resources with error handling
+# Download NLTK resources with error handling - ONLY download punkt and stopwords
 try:
     nltk.download('punkt', quiet=True)
     nltk.download('stopwords', quiet=True)
@@ -145,15 +145,17 @@ class NetflixRecommender:
         self.idx_title_map = {idx: title_id for title_id, idx in self.title_idx_map.items()}
         self.id_to_title = dict(zip(self.titles_df['id'], self.titles_df['title']))
 
-        # Process text efficiently
+        # Process text efficiently - FIXED to avoid NLTK punkt_tab issue
         logger.info("Processing text features...")
         stemmer = SnowballStemmer('english')
 
         def clean_text(text):
+            """Simple text cleaning without relying on NLTK's word_tokenize"""
             if isinstance(text, str):
                 # Simple cleaning for efficiency
                 text = re.sub('[^a-zA-Z]', ' ', text.lower())
-                words = [stemmer.stem(word) for word in nltk.word_tokenize(text) if len(word) > 2]
+                # Use simple split instead of word_tokenize to avoid punkt_tab dependency
+                words = [stemmer.stem(word) for word in text.split() if len(word) > 2]
                 return ' '.join(words)
             return ''
 

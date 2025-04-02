@@ -56,7 +56,7 @@ try:
         os.makedirs(nltk_data_dir)
     nltk.data.path.append(nltk_data_dir)
 
-    # Simple downloads with less output
+    # ONLY download punkt and stopwords - NOT punkt_tab
     nltk.download('punkt', download_dir=nltk_data_dir, quiet=True)
     nltk.download('stopwords', download_dir=nltk_data_dir, quiet=True)
 
